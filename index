@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>ADR Drug Timeline</title>
+<meta name="description" content="Spontaneous ADR Recorder — บันทึกการแพ้ยา"/>
+<meta name="theme-color" content="#378ADD"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="ADR Timeline"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+/* ── RESET ── */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5f2;color:#1a1a18;font-size:14px;-webkit-text-size-adjust:100%;}
+
+/* ── HEADER ── */
+.page-header{background:#fff;border-bottom:1px solid #e0dfd8;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.page-titles .page-title{font-size:15px;font-weight:700;color:#1a1a18;line-height:1.2;}
+.page-titles .page-sub{font-size:10px;color:#888780;margin-top:2px;}
+.header-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:6px 12px;border:1px solid #d3d1c7;border-radius:7px;background:#fff;color:#2c2c2a;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.btn:active{opacity:0.7;}
+.btn-green{border-color:#1D9E75;color:#0F6E56;background:#f0faf6;}
+.btn-blue{border-color:#378ADD;color:#185FA5;background:#f0f6fd;}
+.btn-red{border-color:#E24B4A;color:#a32d2d;background:#fff5f5;}
+.btn-export{border-color:#534AB7;color:#3C3489;background:#f3f2fe;}
+.btn-sm{font-size:11px;padding:4px 9px;}
+
+/* ── TABS (mobile) ── */
+.tabs{display:none;border-bottom:2px solid #e0dfd8;background:#f8f7f3;}
+.tab-btn{flex:1;padding:10px 4px;font-size:13px;font-weight:600;color:#888780;background:transparent;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;-webkit-tap-highlight-color:transparent;}
+.tab-btn.active{color:#378ADD;border-bottom-color:#378ADD;}
+
+/* ── MAIN LAYOUT ── */
+.app{display:flex;height:calc(100vh - 52px);overflow:hidden;}
+
+/* LEFT PANEL */
+.left{width:280px;min-width:260px;max-width:280px;border-right:1px solid #e0dfd8;display:flex;flex-direction:column;background:#fff;overflow:hidden;transition:transform .25s;}
+.left-head{padding:10px 13px 8px;border-bottom:1px solid #e8e7e0;background:#f8f7f3;font-size:12px;font-weight:700;color:#2c2c2a;flex-shrink:0;}
+.drug-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 9px;}
+
+.drug-entry{margin-bottom:8px;background:#f8f7f3;border-radius:9px;border:1px solid #e0dfd8;padding:9px 10px;}
+.drug-entry-top{display:flex;align-items:center;gap:6px;margin-bottom:7px;}
+.color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.ac-wrap{position:relative;flex:1;min-width:0;}
+.ac-wrap input{width:100%;font-size:13px;padding:6px 9px;border:1px solid #d3d1c7;border-radius:7px;background:#fff;color:#1a1a18;outline:none;-webkit-appearance:none;}
+.ac-wrap input:focus{border-color:#378ADD;box-shadow:0 0 0 2px rgba(55,138,221,0.15);}
+.dropdown{position:absolute;top:calc(100% + 3px);left:0;right:0;background:#fff;border:1px solid #d3d1c7;border-radius:8px;z-index:400;max-height:180px;overflow-y:auto;display:none;box-shadow:0 6px 24px rgba(0,0,0,0.14);}
+.dropdown.open{display:block;}
+.di{padding:8px 11px;font-size:13px;cursor:pointer;color:#1a1a18;border-bottom:1px solid #f0efe8;}
+.di:last-child{border-bottom:none;}
+.di:active,.di:hover{background:#e6f1fb;}
+
+.drug-dates{display:grid;grid-template-columns:32px minmax(0,1fr) 40px minmax(0,1fr);gap:3px 4px;align-items:center;}
+.drug-dates label{font-size:10px;color:#888780;white-space:nowrap;}
+.drug-dates input[type=date]{font-size:11px;padding:4px 2px;border:1px solid #d3d1c7;border-radius:6px;background:#fff;color:#1a1a18;outline:none;width:100%;min-width:0;overflow:hidden;}
+.drug-dates input[type=date]:focus{border-color:#378ADD;}
+.drug-dates input[type=date].err{border-color:#E24B4A;background:#fff5f5;}
+.date-err{font-size:10px;color:#E24B4A;margin-top:3px;display:none;}
+.btn-rm{font-size:11px;padding:4px 9px;border:1px solid #d3d1c7;border-radius:6px;background:transparent;color:#888780;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.btn-rm:active{border-color:#E24B4A;color:#E24B4A;}
+.btn-add-drug{margin:5px 9px 6px;font-size:13px;padding:8px 10px;border:1px solid #d3d1c7;border-radius:8px;background:#fff;color:#2c2c2a;cursor:pointer;width:calc(100% - 18px);text-align:left;-webkit-tap-highlight-color:transparent;}
+.btn-add-drug:active{background:#f1efe8;}
+
+/* ADR panel */
+.adr-panel{border-top:1px solid #f7c1c1;padding:10px 10px 12px;background:#fdf5f5;flex-shrink:0;}
+.adr-title{font-size:11px;font-weight:700;color:#a32d2d;margin-bottom:8px;}
+.adr-row{display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap;margin-bottom:7px;}
+.adr-ac{position:relative;flex:1;min-width:140px;}
+.adr-ac input{width:100%;font-size:12px;padding:6px 9px;border:1px solid #f7c1c1;border-radius:7px;background:#fff;color:#1a1a18;outline:none;-webkit-appearance:none;}
+.adr-ac input:focus{border-color:#E24B4A;box-shadow:0 0 0 2px rgba(226,75,74,0.12);}
+.adr-date{font-size:12px;padding:6px 6px;border:1px solid #f7c1c1;border-radius:7px;background:#fff;color:#a32d2d;outline:none;width:120px;-webkit-appearance:none;}
+.adr-date:focus{border-color:#E24B4A;}
+.btn-adr{font-size:12px;padding:6px 12px;border-radius:7px;background:#E24B4A;color:#fff;border:none;cursor:pointer;font-weight:700;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+.btn-adr:active{background:#a32d2d;}
+.adr-badges{display:flex;flex-direction:column;gap:4px;max-height:110px;overflow-y:auto;}
+.adr-badge{display:flex;align-items:flex-start;gap:5px;background:#fcebeb;border:1px solid #f7c1c1;border-radius:7px;padding:5px 9px;font-size:11px;color:#a32d2d;line-height:1.4;}
+.adr-bx{cursor:pointer;margin-left:auto;font-size:16px;line-height:1;color:#d85a30;flex-shrink:0;padding-left:4px;-webkit-tap-highlight-color:transparent;}
+
+/* RIGHT PANEL */
+.right{flex:1;display:flex;flex-direction:column;min-width:0;background:#fff;overflow:hidden;}
+.toolbar{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid #e0dfd8;background:#f8f7f3;flex-wrap:wrap;flex-shrink:0;}
+.tlabel{font-size:11px;color:#888780;font-weight:700;white-space:nowrap;}
+.leg-wrap{display:flex;gap:8px;align-items:center;font-size:10px;color:#888780;flex-wrap:wrap;}
+.leg{display:flex;align-items:center;gap:4px;}
+.notice{font-size:10px;color:#1D9E75;background:#e1f5ee;border-radius:5px;padding:3px 8px;white-space:nowrap;}
+.tl-scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;}
+
+/* TOOLTIP */
+.tooltip{position:fixed;background:#fff;border:1px solid #d3d1c7;border-radius:9px;padding:8px 12px;font-size:12px;pointer-events:none;z-index:999;display:none;box-shadow:0 4px 16px rgba(0,0,0,0.15);max-width:260px;}
+.tt-t{font-weight:700;color:#a32d2d;margin-bottom:2px;}
+.tt-d{font-size:10px;color:#888780;}
+
+/* ── MOBILE: portrait ── */
+@media (max-width:700px){
+  html,body{font-size:15px;}
+  .app{flex-direction:column;height:auto;min-height:calc(100vh - 96px);overflow:visible;}
+  .tabs{display:flex;}
+  .left{width:100%;max-width:100%;min-width:0;border-right:none;border-bottom:1px solid #e0dfd8;max-height:none;overflow:visible;}
+  .left.hidden{display:none;}
+  .right.hidden{display:none;}
+  .right{height:70vmax;min-height:380px;}
+  .leg-wrap{display:none;}
+  .tlabel{display:none;}
+  .page-sub{display:none;}
+  .drug-dates{grid-template-columns:34px 1fr 44px 1fr;}
+}
+
+/* ── TABLET ── */
+@media (min-width:701px) and (max-width:1024px){
+  .left{width:260px;min-width:240px;}
+  .leg-wrap{display:none;}
+}
+
+/* ── PRINT ── */
+@media print{
+  .page-header,.tabs,.toolbar,.left{display:none!important;}
+  .app{height:auto;overflow:visible;}
+  .right{height:auto;}
+  .tl-scroll{overflow:visible;height:auto;}
+  #tlInner{overflow:visible;}
+}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="page-titles">
+    <div class="page-title">ADR Drug Timeline</div>
+    <div class="page-sub">Spontaneous ADR Recorder — โรงพยาบาลเจ้าพระยายมราช</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-green" onclick="saveState()">💾 บันทึก</button>
+    <button class="btn btn-blue" onclick="loadState()">📂 โหลด</button>
+    <button class="btn btn-export" onclick="showA4Preview()" id="exportBtn">📄 พรีวิว / Export PNG</button>
+    <span id="saveNotice" class="notice" style="display:none;">บันทึกแล้ว ✓</span>
+  </div>
+</div>
+
+<!-- tabs สำหรับ mobile -->
+<div class="tabs" id="tabBar">
+  <button class="tab-btn active" onclick="switchTab('left')">💊 ยา / ADR</button>
+  <button class="tab-btn" onclick="switchTab('right')">📊 ไทม์ไลน์</button>
+</div>
+
+<div class="app">
+  <!-- LEFT -->
+  <div class="left" id="panelLeft">
+    <div class="left-head">ยา (Drug)</div>
+    <div class="drug-list" id="drugList"></div>
+    <button class="btn-add-drug" onclick="addDrug()">+ เพิ่มยา</button>
+    <div class="adr-panel">
+      <div class="adr-title">⚠ บันทึกอาการแพ้ยา (ADR)</div>
+      <div class="adr-row">
+        <div class="adr-ac">
+          <input id="adrTypeIn" type="text" placeholder="พิมพ์หรือเลือกอาการ..." autocomplete="off"/>
+          <div class="dropdown" id="adrDrop"></div>
+        </div>
+        <input id="adrDateIn" type="date" class="adr-date"/>
+        <button class="btn-adr" onclick="addADR()">+ ADR</button>
+      </div>
+      <div class="adr-badges" id="adrBadges"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right" id="panelRight">
+    <div class="toolbar">
+      <span class="tlabel">ไทม์ไลน์</span>
+      <button class="btn btn-sm" onclick="zoom(1.5)">＋ ขยาย</button>
+      <button class="btn btn-sm" onclick="zoom(0.67)">－ ย่อ</button>
+      <button class="btn btn-sm" onclick="autoFit()" style="border-color:#1D9E75;color:#0F6E56;">⊡ พอดีจอ</button>
+      <div class="leg-wrap">
+        <div class="leg">
+          <svg width="38" height="14" style="overflow:visible"><line x1="0" y1="7" x2="30" y2="7" stroke="#378ADD" stroke-width="2"/><circle cx="0" cy="7" r="5" fill="white" stroke="#378ADD" stroke-width="2"/><circle cx="30" cy="7" r="5" fill="#378ADD" stroke="#378ADD" stroke-width="2"/></svg>
+          <span>○ เริ่ม ● สิ้นสุด</span>
+        </div>
+        <div class="leg">
+          <svg width="32" height="14" style="overflow:visible"><line x1="0" y1="7" x2="20" y2="7" stroke="#378ADD" stroke-width="2"/><circle cx="0" cy="7" r="5" fill="white" stroke="#378ADD" stroke-width="2"/><polygon points="20,3 30,7 20,11" fill="#378ADD"/></svg>
+          <span style="margin-left:4px;">ยังใช้อยู่</span>
+        </div>
+        <div class="leg">
+          <svg width="14" height="14"><line x1="7" y1="0" x2="7" y2="14" stroke="#E24B4A" stroke-width="2.5" stroke-dasharray="4,3"/></svg>
+          <span>วันแพ้ยา</span>
+        </div>
+      </div>
+    </div>
+    <div class="tl-scroll" id="tlScroll">
+      <div id="tlInner">
+        <div style="padding:60px 20px;text-align:center;color:#b4b2a9;font-size:13px;">เพิ่มยาและวันที่เพื่อดูไทม์ไลน์</div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- A4 Preview Modal -->
+<div id="a4Modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;overflow:auto;padding:20px;">
+  <div style="max-width:860px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.3);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#f8f7f3;border-bottom:1px solid #e0dfd8;">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#1a1a18;">พรีวิว A4 Landscape</div>
+        <div style="font-size:11px;color:#888780;margin-top:2px;">กราฟจะถูก scale ให้พอดีหน้า A4 — ถ้าตัวอักษรเล็กเกินให้ zoom timeline ก่อน</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="doExportPNG()" style="font-size:13px;padding:7px 16px;border-radius:7px;background:#534AB7;color:#fff;border:none;cursor:pointer;font-weight:700;">⬇ ดาวน์โหลด PNG</button>
+        <button onclick="closePreview()" style="font-size:13px;padding:7px 14px;border-radius:7px;background:#fff;color:#2c2c2a;border:1px solid #d3d1c7;cursor:pointer;">✕ ปิด</button>
+      </div>
+    </div>
+    <!-- A4 landscape preview area: ratio 297:210 = 1.414:1 -->
+    <div style="padding:16px;background:#888;overflow:auto;">
+      <div id="a4Frame" style="width:100%;background:#fff;position:relative;box-shadow:0 2px 12px rgba(0,0,0,0.3);">
+        <!-- A4 ratio box: padding-top = 210/297*100% -->
+        <div style="width:100%;padding-top:70.7%;position:relative;">
+          <canvas id="a4Canvas" style="position:absolute;inset:0;width:100%;height:100%;display:block;"></canvas>
+        </div>
+      </div>
+    </div>
+    <div id="previewStatus" style="padding:8px 16px;font-size:11px;color:#888780;text-align:center;border-top:1px solid #f0efe8;">กำลังสร้างพรีวิว...</div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════
+   DATA & CONSTANTS
+════════════════════════════════════ */
+const COLORS=["#378ADD","#1D9E75","#BA7517","#7F77DD","#D4537E","#639922","#D85A30","#185FA5","#0F6E56","#534AB7"];
+const TH_MON=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+
+const DRUG_LIST=[
+  "Abacavir","Acarbose","Acetazolamide","Aciclovir (Acyclovir)","Acitretin","Adenosine","Adrenaline (Epinephrine)","Alendronate","Alfuzosin","Allopurinol","Alprazolam","Alteplase","Aluminium hydroxide","Ambroxol","Amikacin","Amiloride","Aminophylline","Amiodarone","Amitriptyline","Amlodipine","Amoxicillin","Amphotericin B","Ampicillin","Anastrozole","Apixaban","Aripiprazole","Artesunate","Aspirin","Atazanavir","Atenolol","Atomoxetine","Atorvastatin","Atropine","Azathioprine","Azithromycin",
+  "Beclomethasone","Benzbromarone","Betamethasone","Bevacizumab","Bisacodyl","Bisoprolol","Bleomycin","Bromhexine","Budesonide","Bupivacaine","Buprenorphine","Bupropion","Buspirone","Bumetanide",
+  "Calcium carbonate","Calcium gluconate","Candesartan","Capecitabine","Captopril","Carboplatin","Carbamazepine","Carvedilol","Caspofungin","Cefadroxil","Cefazolin","Cefdinir","Cefepime","Cefixime","Cefoperazone/Sulbactam","Cefotaxime","Cefoxitin","Cefpodoxime","Ceftazidime","Ceftriaxone","Cefuroxime","Cefuroxime axetil","Cephalexin","Cetirizine","Chlorambucil","Chloramphenicol","Chlorpheniramine","Chlorpromazine","Cholestyramine","Ciclesonide","Ciclosporin","Ciprofloxacin","Cisplatin","Citalopram","Clarithromycin","Clindamycin","Clobazam","Clomipramine","Clonazepam","Clonidine","Clopidogrel","Clotrimazole","Cloxacillin","Clozapine","Co-amoxiclav","Co-trimoxazole (SMX/TMP)","Codeine","Colchicine","Colistin","Cyclophosphamide","Cyproheptadine",
+  "Dabigatran","Dapagliflozin","Daptomycin","Darunavir","Denosumab","Desloratadine","Dexamethasone","Dextromethorphan","Diazepam","Diclofenac","Digoxin","Diltiazem","Diphenhydramine","Dipyridamole","Docetaxel","Domperidone","Donepezil","Dopamine","Doripenem","Doxazosin","Doxorubicin","Doxycycline","Duloxetine","Dutasteride",
+  "Edoxaban","Empagliflozin","Enalapril","Entecavir","Erlotinib","Ertapenem","Erythromycin","Escitalopram","Eslicarbazepine","Esomeprazole","Etambutol","Etomidate","Etoposide","Etoricoxib","Ezetimibe",
+  "Famotidine","Favipiravir","Febuxostat","Felodipine","Fenofibrate","Fentanyl","Ferrous fumarate","Ferrous sulfate","Fexofenadine","Filgrastim","Finasteride","Fluconazole","Fludrocortisone","Fluoxetine","Fluticasone","Fluvastatin","Fluvoxamine","Folic acid","Fosfomycin","Fulvestrant","Furosemide","Fusidic acid",
+  "Gabapentin","Galantamine","Ganciclovir","Gatifloxacin","Gefitinib","Gemcitabine","Gemfibrozil","Gliclazide","Glibenclamide","Glimepiride","Glipizide","Glycopyrronium","Granisetron","Griseofulvin","Guaifenesin",
+  "Haloperidol","Heparin","Hydralazine","Hydrochlorothiazide","Hydrocortisone","Hydromorphone","Hydroxychloroquine","Hydroxyzine",
+  "Ibandronate","Ibuprofen","Imatinib","Imipenem/Cilastatin","Imipramine","Indapamide","Indomethacin","Infliximab","Insulin Aspart","Insulin Degludec","Insulin Detemir","Insulin Glargine","Insulin Glulisine","Insulin Lispro","Insulin NPH","Insulin Regular","Ipratropium","Irbesartan","Irinotecan","Isoniazid","Isosorbide dinitrate","Isosorbide mononitrate","Isotretinoin","Itraconazole","Ivabradine","Ivermectin",
+  "Ketamine","Ketoconazole","Ketoprofen","Ketorolac",
+  "Lacosamide","Lactulose","Lamivudine","Lamotrigine","Lansoprazole","Latanoprost","Leflunomide","Lenalidomide","Letrozole","Levetiracetam","Levocetirizine","Levodopa/Carbidopa","Levofloxacin","Levothyroxine","Lidocaine","Linezolid","Liothyronine","Lisinopril","Loperamide","Lopinavir/Ritonavir","Loratadine","Lorazepam","Losartan","Lovastatin","Lurasidone",
+  "Magnesium sulfate","Mannitol","Mebendazole","Mefloquine","Mefenamic acid","Memantine","Meropenem","Metformin","Methotrexate","Methimazole","Methyldopa","Methylprednisolone","Metoclopramide","Metoprolol","Metronidazole","Micafungin","Miconazole","Midazolam","Mirabegron","Mirtazapine","Misoprostol","Mometasone","Montelukast","Morphine","Moxifloxacin","Mycophenolate mofetil",
+  "N-acetylcysteine","Naloxone","Naproxen","Nebivolol","Neostigmine","Nicardipine","Nifedipine","Nimodipine","Nitrazepam","Nitrofurantoin","Nitroglycerin","Norfloxacin","Nortriptyline","Nystatin",
+  "Ofloxacin","Olanzapine","Olmesartan","Omalizumab","Omeprazole","Ondansetron","Oseltamivir","Osimertinib","Oxaliplatin","Oxcarbazepine","Oxybutynin","Oxycodone",
+  "Paclitaxel","Paliperidone","Pantoprazole","Paracetamol (Acetaminophen)","Paroxetine","Penicillin G","Penicillin V","Pentazocine","Perampanel","Perindopril","Permethrin","Pethidine","Phenobarbital","Phenytoin","Pioglitazone","Piperacillin/Tazobactam","Piroxicam","Pitavastatin","Polymyxin B","Posaconazole","Potassium chloride","Pramipexole","Pravastatin","Prazosin","Prednisolone","Pregabalin","Primaquine","Probenecid","Promethazine","Propofol","Propranolol","Propylthiouracil","Protamine sulfate","Pyrazinamide","Pyridoxine (Vitamin B6)",
+  "Quetiapine","Quinine",
+  "Rabeprazole","Raltegravir","Ramipril","Ranitidine","Rasagiline","Remdesivir","Repaglinide","Rifampicin","Risperidone","Rituximab","Rivaroxaban","Rivastigmine","Rocuronium","Roflumilast","Ropinirole","Rosuvastatin","Roxithromycin",
+  "Salbutamol","Saxagliptin","Selegiline","Senna","Sertraline","Sildenafil","Sirolimus","Sitagliptin","Sodium bicarbonate","Sofosbuvir","Solifenacin","Sotalol","Spironolactone","Spiramycin","Streptomycin","Sucralfate","Sufentanil","Sugammadex","Sulfasalazine","Suxamethonium","Simvastatin","Simethicone",
+  "Tacrolimus","Tadalafil","Tamoxifen","Tamsulosin","Tenofovir","Terazosin","Terbinafine","Terbutaline","Tetracycline","Thalidomide","Theophylline","Thiopental","Ticagrelor","Ticlopidine","Tigecycline","Timolol","Tinidazole","Tiotropium","Tofacitinib","Tolterodine","Topiramate","Torsemide","Tramadol","Trandolapril","Trastuzumab","Triamcinolone","Triamterene","Trimethoprim","Tropisetron",
+  "Umeclidinium","Upadacitinib","Ursodeoxycholic acid",
+  "Valacyclovir","Valproate (Valproic acid)","Valsartan","Vancomycin","Vasopressin","Vecuronium","Venlafaxine","Verapamil","Vigabatrin","Vildagliptin","Vincristine","Vinorelbine","Vitamin B1 (Thiamine)","Vitamin B12 (Cyanocobalamin)","Vitamin C","Vitamin D3","Vitamin E","Vitamin K1","Voriconazole",
+  "Warfarin","Zanamivir","Zinc","Ziprasidone","Zoledronic acid","Zolpidem","Zonisamide","Zopiclone"
+].sort((a,b)=>a.localeCompare(b));
+
+const ADR_LIST=["Maculopapular rash (MP rash)","Urticaria (ลมพิษ)","Angioedema","Anaphylaxis","Fixed drug eruption (FDE)","AGEP","SJS","TEN","SJS/TEN","DRESS","Contact dermatitis","Exfoliative dermatitis","Photosensitivity","Erythema multiforme","Erythema nodosum","Pruritus (คัน)","Flushing","Serum sickness","Drug fever","Hepatotoxicity","Nephrotoxicity","QT prolongation","Neutropenia","Agranulocytosis","Thrombocytopenia","Hemolytic anemia","Aplastic anemia","Eosinophilia","Bronchospasm","Anaphylactoid reaction","Drug-induced lupus","Vasculitis","Phlebitis","Stevens-Johnson syndrome"];
+
+let drugs=[],adrs=[],dc=0,zoomLevel=1;
+const BASE_PPD=38, LABEL_W=200, DAYS_COL_W=62;
+
+/* ════ HELPERS ════ */
+function today(){return new Date().toISOString().slice(0,10);}
+function fmtTHShort2(ds){
+  if(!ds)return'';
+  const[y,m,d]=ds.split('-');
+  return`${parseInt(d)} ${TH_MON[parseInt(m)-1]} ${String(parseInt(y)+543).slice(2)}`;
+}
+function daysBetween(s,e){return Math.max(0,Math.round((new Date(e)-new Date(s))/86400000));}
+// แปลง yyyy-mm-dd → dd/mm/yy (ปี ค.ศ. 2 หลัก เพราะ input เป็น ค.ศ.)
+function dateToDDMMYY(iso){
+  if(!iso)return'';
+  const[y,m,d]=iso.split('-');
+  return`${d}/${m}/${String(y).slice(2)}`;
+}
+
+/* ════ TABS (mobile) ════ */
+function switchTab(tab){
+  const pl=document.getElementById('panelLeft');
+  const pr=document.getElementById('panelRight');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  if(tab==='left'){
+    pl.classList.remove('hidden'); pr.classList.add('hidden');
+    document.querySelectorAll('.tab-btn')[0].classList.add('active');
+  } else {
+    pr.classList.remove('hidden'); pl.classList.add('hidden');
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    renderTimeline();
+  }
+}
+
+/* ════ DROPDOWN ════ */
+function showDD(dd,items,cb){
+  if(!items.length){dd.classList.remove('open');return;}
+  dd.innerHTML=items.map(i=>`<div class="di">${i}</div>`).join('');
+  dd.classList.add('open');
+  dd.querySelectorAll('.di').forEach((el,i)=>el.addEventListener('mousedown',e=>{e.preventDefault();cb(items[i]);}));
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.ac-wrap')&&!e.target.closest('.adr-ac'))
+    document.querySelectorAll('.dropdown').forEach(d=>d.classList.remove('open'));
+});
+
+/* ════ DATE VALIDATION ════ */
+function validateDates(d,startEl,endEl,errEl){
+  startEl.classList.remove('err'); endEl.classList.remove('err'); errEl.style.display='none';
+  if(!d.start)return true;
+  if(d.start>today()){d.start=today();startEl.value=today();}
+  if(!d.end)return true;
+  if(d.end>today()){d.end=today();endEl.value=today();}
+  if(d.end<d.start){
+    errEl.textContent='วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น';
+    errEl.style.display='block'; endEl.classList.add('err');
+    d.end=''; endEl.value=''; return false;
+  }
+  return true;
+}
+
+/* ════ DRUGS ════ */
+function addDrug(){
+  dc++;
+  const color=COLORS[(drugs.length)%COLORS.length];
+  drugs.push({id:'d'+dc,color,name:'',start:today(),end:''});
+  renderLeft(); renderTimeline();
+}
+function removeDrug(id){drugs=drugs.filter(d=>d.id!==id);renderLeft();renderTimeline();}
+
+function renderLeft(){
+  const list=document.getElementById('drugList');
+  list.innerHTML='';
+  drugs.forEach(d=>{
+    const el=document.createElement('div');
+    el.className='drug-entry';
+    el.innerHTML=`
+      <div class="drug-entry-top">
+        <div class="color-dot" style="background:${d.color}"></div>
+        <div class="ac-wrap">
+          <input type="text" class="dname" placeholder="พิมพ์หรือค้นหาชื่อยา..." value="${d.name}" autocomplete="off"/>
+          <div class="dropdown" id="dd_${d.id}"></div>
+        </div>
+        <button class="btn-rm" onclick="removeDrug('${d.id}')">ลบ</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:2px;">
+        <div style="display:flex;align-items:center;gap:5px;">
+          <label style="font-size:10px;color:#888780;white-space:nowrap;width:28px;flex-shrink:0;">เริ่ม</label>
+          <input type="date" class="dstart" value="${d.start}" max="${today()}" style="flex:1;min-width:0;font-size:12px;padding:6px 4px;border:1px solid #d3d1c7;border-radius:6px;background:#fff;color:#1a1a18;outline:none;width:100%;"/>
+          <span class="dstart-lbl" style="font-size:10px;color:#378ADD;font-weight:600;white-space:nowrap;min-width:46px;text-align:right;">${d.start?dateToDDMMYY(d.start):''}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <label style="font-size:10px;color:#888780;white-space:nowrap;width:28px;flex-shrink:0;">สิ้นสุด</label>
+          <input type="date" class="dend" value="${d.end}" max="${today()}" ${d.start?`min="${d.start}"`:''}  style="flex:1;min-width:0;font-size:12px;padding:6px 4px;border:1px solid #d3d1c7;border-radius:6px;background:#fff;color:#1a1a18;outline:none;width:100%;"/>
+          <span class="dend-lbl" style="font-size:10px;color:#378ADD;font-weight:600;white-space:nowrap;min-width:46px;text-align:right;">${d.end?dateToDDMMYY(d.end):''}</span>
+        </div>
+      </div>
+      <div class="date-err"></div>`;
+    list.appendChild(el);
+    const ni=el.querySelector('.dname'), dd=el.querySelector('.dropdown');
+    const startEl=el.querySelector('.dstart'), endEl=el.querySelector('.dend'), errEl=el.querySelector('.date-err');
+    const startLbl=el.querySelector('.dstart-lbl'), endLbl=el.querySelector('.dend-lbl');
+    const ac=()=>{
+      const q=ni.value.toLowerCase();
+      const m=q?DRUG_LIST.filter(x=>x.toLowerCase().includes(q)).slice(0,15):DRUG_LIST.slice(0,15);
+      if(m.length) showDD(dd,m,v=>{ni.value=v;d.name=v;dd.classList.remove('open');renderTimeline();});
+      else dd.classList.remove('open');
+    };
+    ni.addEventListener('input',()=>{d.name=ni.value;ac();});
+    ni.addEventListener('focus',ac);
+    ni.addEventListener('blur',()=>{setTimeout(()=>{dd.classList.remove('open');d.name=ni.value;renderTimeline();},200);});
+    startEl.addEventListener('change',e=>{
+      d.start=e.target.value; endEl.min=d.start||'';
+      if(d.end&&d.end<d.start){d.end='';endEl.value='';endLbl.textContent='';}
+      startLbl.textContent=d.start?dateToDDMMYY(d.start):'';
+      errEl.style.display='none';
+      renderTimeline();
+    });
+    endEl.addEventListener('change',e=>{
+      d.end=e.target.value;
+      if(d.start&&d.end<d.start){errEl.textContent='วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น';errEl.style.display='block';d.end='';endEl.value='';endLbl.textContent='';}
+      else{errEl.style.display='none';endLbl.textContent=d.end?dateToDDMMYY(d.end):'';}
+      renderTimeline();
+    });
+  });
+}
+
+/* ════ ADR ════ */
+const adrIn=document.getElementById('adrTypeIn');
+const adrDrop=document.getElementById('adrDrop');
+const adrDateIn=document.getElementById('adrDateIn');
+adrDateIn.value=today(); adrDateIn.max=today();
+adrDateIn.addEventListener('change',()=>{if(adrDateIn.value>today())adrDateIn.value=today();});
+const adrAC=()=>{
+  const q=adrIn.value.toLowerCase();
+  const m=q?ADR_LIST.filter(a=>a.toLowerCase().includes(q)):ADR_LIST;
+  showDD(adrDrop,m,v=>{adrIn.value=v;adrDrop.classList.remove('open');});
+};
+adrIn.addEventListener('input',adrAC);
+adrIn.addEventListener('focus',adrAC);
+
+function addADR(){
+  const type=adrIn.value.trim(); if(!type){adrIn.focus();return;}
+  let date=adrDateIn.value; if(!date){adrDateIn.focus();return;}
+  if(date>today())date=today();
+  adrs.push({type,date,id:'adr'+Date.now()});
+  adrIn.value=''; adrDateIn.value=today();
+  renderBadges(); renderTimeline();
+}
+function removeADR(id){adrs=adrs.filter(a=>a.id!==id);renderBadges();renderTimeline();}
+function renderBadges(){
+  document.getElementById('adrBadges').innerHTML=adrs.map(a=>`
+    <div class="adr-badge">
+      <span>⚠ <b>${a.type}</b> <span style="color:#d85a30;">${fmtTHShort2(a.date)}</span></span>
+      <span class="adr-bx" onclick="removeADR('${a.id}')">×</span>
+    </div>`).join('');
+}
+
+/* ════ ZOOM ════ */
+function zoom(f){zoomLevel=Math.max(0.15,Math.min(12,zoomLevel*f));renderTimeline();}
+function resetZoom(){zoomLevel=1;renderTimeline();}
+function autoFit(){
+  const range=getRange();
+  if(!range)return;
+  const totalDays=Math.ceil((range.mx-range.mn)/86400000);
+  if(totalDays<=0)return;
+  const avail=document.getElementById('panelRight').clientWidth - LABEL_W - DAYS_COL_W - 20;
+  // approximate: assume ~30% days are active
+  const estW=(totalDays*0.3*BASE_PPD*zoomLevel)+(totalDays*0.7*Math.max(4,BASE_PPD*zoomLevel*0.18));
+  const ratio=avail/Math.max(estW,1);
+  zoomLevel=Math.max(0.15,Math.min(12,zoomLevel*ratio));
+  renderTimeline();
+}
+
+/* ════ TOOLTIP ════ */
+const tip=document.getElementById('tooltip');
+function showTip(e,html){tip.innerHTML=html;tip.style.display='block';moveTip(e);}
+function moveTip(e){
+  const x=e.clientX||e.touches?.[0]?.clientX||0;
+  const y=e.clientY||e.touches?.[0]?.clientY||0;
+  tip.style.left=Math.min(x+14,window.innerWidth-250)+'px';
+  tip.style.top=Math.max(y-10,4)+'px';
+}
+function hideTip(){tip.style.display='none';}
+document.addEventListener('mousemove',e=>{if(tip.style.display==='block')moveTip(e);});
+document.addEventListener('touchend',()=>setTimeout(hideTip,1200));
+
+/* ════ RANGE ════ */
+function getRange(){
+  let all=[];
+  drugs.forEach(d=>{if(d.start)all.push(new Date(d.start));if(d.end)all.push(new Date(d.end));});
+  adrs.forEach(a=>{if(a.date)all.push(new Date(a.date));});
+  if(!all.length)return null;
+  let mn=new Date(Math.min(...all)),mx=new Date(Math.max(...all));
+  mn.setDate(mn.getDate()-1); mx.setDate(mx.getDate()+2);
+  return{mn,mx};
+}
+
+/* ════ RENDER TIMELINE ════ */
+let exportMode=false;
+
+function renderTimeline(){
+  const inner=document.getElementById('tlInner');
+  const active=drugs.filter(d=>d.name&&d.start);
+  if(!active.length&&!adrs.length){
+    inner.innerHTML='<div style="padding:60px 20px;text-align:center;color:#b4b2a9;font-size:13px;">เพิ่มยาและวันที่เพื่อดูไทม์ไลน์</div>';
+    return;
+  }
+  const range=getRange(); if(!range)return;
+  const{mn,mx}=range;
+  const ppd=BASE_PPD*zoomLevel;       // px ต่อวันในช่วงยา
+  const ppdGap=Math.max(4, ppd*0.18); // px ต่อวันในช่วงว่าง (บีบ)
+
+  const totalDays=Math.ceil((mx-mn)/86400000);
+
+  // สร้าง "active day set" — วันที่มียาใช้อยู่
+  const activeDaySet=new Set();
+  active.forEach(d=>{
+    const s=new Date(d.start), e=d.end?new Date(d.end):new Date(mx);
+    for(let cur=new Date(s);cur<=e;cur.setDate(cur.getDate()+1)){
+      activeDaySet.add(cur.toISOString().slice(0,10));
+    }
+  });
+  adrs.forEach(a=>{ if(a.date) activeDaySet.add(a.date); });
+
+  // เพิ่ม buffer 2 วันรอบวันที่มียา ให้เส้นไม่ชิดขอบ
+  const bufferedSet=new Set(activeDaySet);
+  activeDaySet.forEach(ds=>{
+    for(let b=-2;b<=2;b++){
+      const d2=new Date(ds); d2.setDate(d2.getDate()+b);
+      bufferedSet.add(d2.toISOString().slice(0,10));
+    }
+  });
+
+  // คำนวณ cumulative x ของแต่ละวัน
+  const allDays=[];
+  const dayX={}; // dateStr → x pixel (left edge)
+  let cx=0;
+  for(let i=0;i<totalDays;i++){
+    const d=new Date(mn); d.setDate(d.getDate()+i);
+    const ds=d.toISOString().slice(0,10);
+    dayX[ds]=cx;
+    const w=bufferedSet.has(ds)?ppd:ppdGap;
+    allDays.push({d,ds,x:cx,w});
+    cx+=w;
+  }
+  const W=cx;
+
+  function d2x(dateStr){
+    // interpolate ถ้า dateStr ตรงกับวันใน allDays
+    if(dayX[dateStr]!==undefined) return dayX[dateStr];
+    // หาวันใกล้สุด
+    const target=new Date(dateStr);
+    const diff=Math.round((target-mn)/86400000);
+    if(diff<=0) return 0;
+    if(diff>=totalDays) return W;
+    return dayX[allDays[diff]?.ds]||0;
+  }
+
+  const ROW_NORMAL=Math.max(52,Math.min(90,Math.floor(380/Math.max(active.length,1))));
+  const ROW_EXPORT=Math.max(80,Math.min(140,Math.floor(520/Math.max(active.length,1))));
+  const ROW=exportMode?ROW_EXPORT:ROW_NORMAL;
+  const CY=Math.round(ROW*0.58), R=6, LW=2;
+
+  /* month starts */
+  const monthStarts=[];
+  allDays.forEach(({d,x},i)=>{
+    if(d.getDate()===1||i===0){
+      const be=d.getFullYear()+543;
+      monthStarts.push({x,label:`${TH_MON[d.getMonth()]} ${String(be).slice(2)}`});
+    }
+  });
+
+  /* grid lines */
+  function gridLines(){
+    return allDays.map(({d,x,w},i)=>`<div style="position:absolute;left:${x}px;top:0;bottom:0;width:${w}px;border-left:1px solid ${d.getDate()===1?'#c8c6be':i%7===0?'#d3d1c7':'#eeede6'};pointer-events:none;"></div>`).join('');
+  }
+
+  /* font sizes และ element sizes scale ตาม ROW */
+  const FONT=Math.max(9, Math.round(ROW*0.14));       // label วันที่บนเส้น
+  const FONT_ADR=Math.max(9, Math.round(ROW*0.13));   // label ADR
+  const FONT_NAME=Math.max(12, Math.round(ROW*0.18)); // ชื่อยาใน label col
+  const FONT_DAY=Math.max(14, Math.round(ROW*0.22));  // ตัวเลขจำนวนวัน
+  const FONT_DAY_SUB=Math.max(9, Math.round(ROW*0.12));
+  const FONT_HDR=Math.max(10, Math.round(ROW*0.13));  // header วันที่
+  const RR=Math.max(6, Math.round(ROW*0.09));         // circle radius
+  const LWW=Math.max(2, Math.round(ROW*0.03));        // line width
+
+  /* ADR label overlay — วาดเป็น HTML div ลอยเหนือแถวแรก */
+  function adrLabelOverlay(){
+    return adrs.map(a=>{
+      const ax=d2x(a.date);
+      const line1=a.type.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const line2=`(${fmtTHShort2(a.date)})`;
+      return`<div style="position:absolute;left:${ax+5}px;bottom:4px;background:white;border:1.2px solid #f7c1c1;border-radius:4px;padding:2px 6px;white-space:nowrap;z-index:20;pointer-events:none;line-height:1.4;">
+        <div style="font-size:${FONT_ADR}px;font-weight:700;color:#a32d2d;">${line1}</div>
+        <div style="font-size:${Math.max(8,FONT_ADR-1)}px;color:#c0392b;">${line2}</div>
+      </div>`;
+    }).join('');
+  }
+
+  /* ADR SVG lines — เส้นตรง + ❗ปลายล่างอย่างเดียว */
+  function adrSVGLines(rowH){
+    return adrs.map(a=>{
+      const ax=d2x(a.date);
+      const tipHTML=`<div class='tt-t'>⚠ ${a.type}</div><div class='tt-d'>${fmtTHShort2(a.date)}</div>`;
+      const symR=Math.max(9,Math.round(rowH*0.13));
+      const symY=rowH-symR-2;
+      return`
+        <line x1="${ax}" y1="0" x2="${ax}" y2="${symY-symR}" stroke="#E24B4A" stroke-width="${LWW+0.5}"/>
+        <circle cx="${ax}" cy="${symY}" r="${symR}" fill="#E24B4A" style="cursor:pointer;"
+          onmouseenter="showTip(event,'${tipHTML.replace(/'/g,'&#39;').replace(/"/g,'&quot;')}')" onmouseleave="hideTip()"/>
+        <text x="${ax}" y="${symY+Math.round(symR*0.6)}" text-anchor="middle" font-size="${Math.round(symR*1.4)}px" fill="white" font-family="Arial,sans-serif" font-weight="900" style="pointer-events:none;">!</text>`;
+    }).join('');
+  }
+
+  /* ── HEADER row เดือน — กรองไม่ให้ซ้อน ── */
+  // คำนวณ label เดือนแล้วกรองที่ซ้อนกันออก
+  const filteredMonths=[];
+  monthStarts.forEach(ms=>{
+    if(!filteredMonths.length||ms.x-filteredMonths[filteredMonths.length-1].x>55){
+      filteredMonths.push(ms);
+    }
+  });
+
+  let html=`<div style="display:flex;position:sticky;top:0;background:#f8f7f3;z-index:11;border-bottom:1px solid #d3d1c7;">
+    <div style="width:${LABEL_W}px;min-width:${LABEL_W}px;border-right:1px solid #e0dfd8;position:sticky;left:0;background:#f8f7f3;z-index:15;height:24px;"></div>
+    <div style="position:relative;width:${W}px;flex-shrink:0;height:24px;overflow:hidden;">
+      ${filteredMonths.map(ms=>`<div style="position:absolute;left:${ms.x+3}px;top:3px;font-size:${FONT_HDR+1}px;font-weight:700;color:#2c2c2a;white-space:nowrap;background:#f8f7f3;padding-right:4px;">${ms.label}</div>`).join('')}
+    </div>
+    <div style="width:${DAYS_COL_W}px;min-width:${DAYS_COL_W}px;border-left:1px solid #e0dfd8;"></div>
+  </div>`;
+
+  /* ── HEADER row วันที่ — adaptive ticks ── */
+  const minTickPx=20;
+  const tickEvery = ppd>=minTickPx ? 1
+    : ppd*2>=minTickPx ? 2
+    : ppd*5>=minTickPx ? 5
+    : ppd*10>=minTickPx ? 10
+    : ppd*15>=minTickPx ? 15
+    : ppd*30>=minTickPx ? 30 : 60;
+
+  const showDay=(d)=>{
+    const dt=d.getDate();
+    if(tickEvery===1) return true;
+    if(tickEvery===2) return dt%2===1;
+    if(tickEvery===5) return [1,5,10,15,20,25].includes(dt);
+    if(tickEvery===10) return [1,10,20].includes(dt);
+    if(tickEvery===15) return [1,15].includes(dt);
+    return dt===1;
+  };
+
+  html+=`<div style="display:flex;position:sticky;top:24px;background:#fff;z-index:10;border-bottom:2px solid #c8c6be;">
+    <div style="width:${LABEL_W}px;min-width:${LABEL_W}px;padding:3px 10px;font-size:${FONT_HDR}px;color:#888780;font-weight:700;border-right:1px solid #e0dfd8;position:sticky;left:0;background:#fff;z-index:15;">ยา</div>
+    <div style="position:relative;width:${W}px;flex-shrink:0;height:24px;overflow:hidden;background:#fff;">
+      ${allDays.map(({d,x,w},i)=>{
+        const show=showDay(d);
+        const isMon=d.getDate()===1;
+        const isAct=bufferedSet.has(d.toISOString().slice(0,10));
+        const borderColor=isMon?'#c8c6be':i%7===0?'#d3d1c7':'#eeede6';
+        const borderW=isMon?'2px':'1px';
+        const dayNum=String(d.getDate()).padStart(2,'0');
+        const fs=Math.max(7,FONT_HDR-(tickEvery>5?1:0));
+        return`<div style="position:absolute;left:${x}px;top:0;width:${w}px;height:24px;border-left:${borderW} solid ${borderColor};display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          ${(show&&isAct)||isMon?`<span style="font-size:${fs}px;color:#444441;line-height:1;white-space:nowrap;">${dayNum}</span>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="width:${DAYS_COL_W}px;min-width:${DAYS_COL_W}px;padding:3px 4px;font-size:${FONT_HDR}px;color:#888780;font-weight:700;border-left:1px solid #e0dfd8;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.2;">วันที่<br/>ใช้</div>
+  </div>`;
+
+  /* ── DRUG ROWS — จัดกลุ่มชื่อเดียวกันเป็นแถวเดียว ── */
+  // จัดกลุ่ม: key = ชื่อยา, value = array ของ drug objects
+  const grouped = [];
+  const nameMap = {};
+  active.forEach(d=>{
+    const key=d.name.trim().toLowerCase();
+    if(nameMap[key]!==undefined){
+      grouped[nameMap[key]].segments.push(d);
+    } else {
+      nameMap[key]=grouped.length;
+      grouped.push({name:d.name, color:d.color, segments:[d]});
+    }
+  });
+
+  grouped.forEach((group, rowIdx)=>{
+    const c=group.color;
+    // คำนวณรวมจำนวนวันทุก segment
+    const totalDays=group.segments.reduce((sum,d)=>{
+      return sum+(d.end?daysBetween(d.start,d.end):daysBetween(d.start,today()));
+    },0);
+    const hasOngoing=group.segments.some(d=>!d.end);
+
+    let svg='';
+    group.segments.forEach((d,si)=>{
+      const x1=d2x(d.start);
+      const ongoing=!d.end;
+      const x2=d.end?d2x(d.end):W-RR-8;
+      const startLabel=fmtTHShort2(d.start);
+      const endLabel=d.end?fmtTHShort2(d.end):'ปัจจุบัน';
+
+      // เส้นหลักของ segment
+      svg+=`<line x1="${x1}" y1="${CY}" x2="${x2}" y2="${CY}" stroke="${c}" stroke-width="${LWW}"/>`;
+      // วงกลมใส = เริ่ม
+      svg+=`<circle cx="${x1}" cy="${CY}" r="${RR}" fill="white" stroke="${c}" stroke-width="${LWW}"/>`;
+      svg+=`<text x="${x1}" y="${CY-RR-4}" text-anchor="middle" font-size="${FONT}" fill="${c}" font-family="'Segoe UI',sans-serif" font-weight="600">${startLabel}</text>`;
+      // ปลาย
+      if(ongoing){
+        const aw=Math.round(RR*2), ah=Math.round(RR*1.3);
+        svg+=`<polygon points="${x2},${CY-ah} ${x2+aw},${CY} ${x2},${CY+ah}" fill="${c}"/>`;
+        svg+=`<text x="${x2+aw/2}" y="${CY+RR+FONT+2}" text-anchor="middle" font-size="${FONT}" fill="${c}" font-family="'Segoe UI',sans-serif" font-weight="600">${endLabel}</text>`;
+      } else {
+        svg+=`<circle cx="${x2}" cy="${CY}" r="${RR}" fill="${c}" stroke="${c}" stroke-width="${LWW}"/>`;
+        svg+=`<text x="${x2}" y="${CY+RR+FONT+2}" text-anchor="middle" font-size="${FONT}" fill="${c}" font-family="'Segoe UI',sans-serif" font-weight="600">${endLabel}</text>`;
+      }
+      // เส้นประเชื่อมระหว่าง segment (ถ้ามี segment ถัดไปที่เริ่มหลังจาก segment นี้จบ)
+      if(si<group.segments.length-1 && d.end){
+        const nextD=group.segments[si+1];
+        if(nextD.start>d.end){
+          const gapX1=d2x(d.end);
+          const gapX2=d2x(nextD.start);
+          svg+=`<line x1="${gapX1}" y1="${CY}" x2="${gapX2}" y2="${CY}" stroke="${c}" stroke-width="${Math.max(1,LWW-1)}" stroke-dasharray="${Math.round(RR*1.5)},${Math.round(RR*1.2)}" opacity="0.4"/>`;
+        }
+      }
+    });
+
+    html+=`<div style="display:flex;border-bottom:1px solid #f0efe8;height:${ROW}px;">
+      <div style="width:${LABEL_W}px;min-width:${LABEL_W}px;display:flex;align-items:center;gap:7px;padding:0 10px;border-right:1px solid #f0efe8;position:sticky;left:0;background:#fff;z-index:5;">
+        <div class="color-dot" style="background:${c};flex-shrink:0;width:${Math.round(RR*1.4)}px;height:${Math.round(RR*1.4)}px;border-radius:50%;"></div>
+        <span style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;flex:1;font-size:${group.name.length>20?Math.max(10,FONT_NAME-2):FONT_NAME}px;font-weight:500;line-height:1.3;word-break:break-word;" title="${group.name}">${group.name||'—'}</span>
+      </div>
+      <div style="position:relative;width:${W}px;height:${ROW}px;flex-shrink:0;overflow:hidden;">
+        ${gridLines()}
+        <svg width="${W}" height="${ROW}" style="position:absolute;left:0;top:0;overflow:visible;z-index:3;">
+          ${adrSVGLines(ROW)}
+          ${svg}
+        </svg>
+        ${rowIdx===0&&adrs.length?`<div style="position:absolute;left:0;top:0;width:${W}px;height:${ROW}px;pointer-events:none;overflow:visible;z-index:10;"></div>`:''}
+      </div>
+      <div style="width:${DAYS_COL_W}px;min-width:${DAYS_COL_W}px;display:flex;align-items:center;justify-content:center;border-left:1px solid #f0efe8;flex-direction:column;gap:1px;">
+        <span style="font-size:${FONT_DAY}px;font-weight:700;color:${c};line-height:1;">${totalDays}</span>
+        <span style="font-size:${FONT_DAY_SUB}px;color:#888780;">${hasOngoing?'วัน*':'วัน'}</span>
+      </div>
+    </div>`;
+  });
+
+  /* ── แถว ADR label ใต้กราฟทั้งหมด ── */
+  if(adrs.length){
+    const labelRowH=Math.max(36, FONT_ADR*3+16);
+    // วาดเส้นแนวตั้งต่อลงมาถึงแถวนี้
+    const adrLineExt=adrs.map(a=>{
+      const ax=d2x(a.date);
+      return`<div style="position:absolute;left:${ax}px;top:0;bottom:0;width:1px;background:#E24B4A;opacity:0.25;pointer-events:none;"></div>`;
+    }).join('');
+
+    const adrLabels=adrs.map(a=>{
+      const ax=d2x(a.date);
+      const line1=a.type.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const line2=fmtTHShort2(a.date);
+      return`<div style="position:absolute;left:${ax+5}px;top:6px;background:#fcebeb;border:1.2px solid #f7c1c1;border-radius:5px;padding:3px 8px;white-space:nowrap;pointer-events:none;line-height:1.5;">
+        <div style="font-size:${FONT_ADR}px;font-weight:700;color:#a32d2d;">⚠ ${line1}</div>
+        <div style="font-size:${Math.max(8,FONT_ADR-1)}px;color:#c0392b;">${line2}</div>
+      </div>`;
+    }).join('');
+
+    html+=`<div style="display:flex;border-top:2px solid #f7c1c1;background:#fdf5f5;min-height:${labelRowH}px;">
+      <div style="width:${LABEL_W}px;min-width:${LABEL_W}px;display:flex;align-items:center;padding:0 10px;font-size:11px;font-weight:700;color:#a32d2d;border-right:1px solid #f7c1c1;position:sticky;left:0;background:#fdf5f5;z-index:5;">⚠ อาการแพ้ยา</div>
+      <div style="position:relative;width:${W}px;flex-shrink:0;min-height:${labelRowH}px;">
+        ${adrLineExt}
+        ${adrLabels}
+      </div>
+      <div style="width:${DAYS_COL_W}px;min-width:${DAYS_COL_W}px;border-left:1px solid #f7c1c1;"></div>
+    </div>`;
+
+  }
+
+  inner.innerHTML=html;
+}
+
+/* ════ SAVE / LOAD ════ */
+function saveState(){
+  localStorage.setItem('adr_drugs',JSON.stringify(drugs));
+  localStorage.setItem('adr_adrs',JSON.stringify(adrs));
+  localStorage.setItem('adr_dc',String(dc));
+  const n=document.getElementById('saveNotice');
+  n.style.display='inline-block';
+  setTimeout(()=>n.style.display='none',2500);
+}
+function loadState(){
+  try{
+    const dj=localStorage.getItem('adr_drugs');
+    const aj=localStorage.getItem('adr_adrs');
+    const cj=localStorage.getItem('adr_dc');
+    if(dj)drugs=JSON.parse(dj);
+    if(aj)adrs=JSON.parse(aj);
+    if(cj)dc=parseInt(cj);
+    renderLeft();renderBadges();renderTimeline();
+  }catch(e){alert('ไม่พบข้อมูลที่บันทึกไว้');}
+}
+
+/* ════ A4 PREVIEW & EXPORT ════ */
+let _exportCanvas=null; // เก็บ canvas ไว้ดาวน์โหลด
+
+function captureTimeline(scale, cb){
+  const tl=document.getElementById('tlScroll');
+  const target=document.getElementById('tlInner');
+  const prevOv=tl.style.overflow, prevH=tl.style.height;
+  tl.style.overflow='visible'; tl.style.height='auto';
+  setTimeout(()=>{
+    html2canvas(target,{
+      backgroundColor:'#ffffff', scale,
+      useCORS:true, scrollX:0, scrollY:0,
+      width:target.scrollWidth, height:target.scrollHeight,
+      windowWidth:target.scrollWidth, windowHeight:target.scrollHeight,
+      logging:false
+    }).then(canvas=>{
+      tl.style.overflow=prevOv; tl.style.height=prevH;
+      cb(null,canvas);
+    }).catch(e=>{
+      tl.style.overflow=prevOv; tl.style.height=prevH;
+      cb(e);
+    });
+  },80);
+}
+
+// วาด canvas ของ timeline ลงบน A4 canvas (landscape 297x210mm proportional)
+function drawOnA4(srcCanvas, dstCanvas){
+  const dw=dstCanvas.width, dh=dstCanvas.height;
+  const margin=Math.round(dw*0.015);
+  const footerH=Math.round(dh*0.045);
+  const usableW=dw-margin*2;
+  const usableH=dh-margin-footerH;
+
+  // scale ให้เต็มความกว้าง A4 เสมอ (ไม่สนใจ aspect ratio — ยืดตามแนวตั้งถ้าจำเป็น)
+  // แต่ถ้า src สูงกว่า usableH ให้ scale ลงพอดีความสูง
+  let scaleX=usableW/srcCanvas.width;
+  let fw=usableW;
+  let fh=Math.round(srcCanvas.height*scaleX);
+
+  // ถ้าสูงเกิน usableH ให้ fit ด้วยความสูงแทน
+  if(fh>usableH){
+    const scaleY=usableH/srcCanvas.height;
+    fw=Math.round(srcCanvas.width*scaleY);
+    fh=usableH;
+  }
+
+  const ox=margin+Math.round((usableW-fw)/2);
+  const oy=margin;
+
+  const ctx=dstCanvas.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,dw,dh);
+
+  // วาด border กรอบ A4
+  ctx.strokeStyle='#e0dfd8'; ctx.lineWidth=2;
+  ctx.strokeRect(ox-1, oy-1, fw+2, fh+2);
+
+  ctx.drawImage(srcCanvas, ox, oy, fw, fh);
+
+  // footer line
+  ctx.strokeStyle='#e0dfd8'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(margin, dh-footerH+4); ctx.lineTo(dw-margin, dh-footerH+4); ctx.stroke();
+
+  const fSize=Math.round(dh*0.018);
+  ctx.fillStyle='#888'; ctx.font=`${fSize}px 'Segoe UI',sans-serif`;
+  ctx.textAlign='left';
+  ctx.fillText('ADR Drug Timeline — Spontaneous ADR Recorder', margin, dh-Math.round(footerH*0.3));
+  ctx.textAlign='right';
+  const dateStr=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  ctx.fillText(dateStr, dw-margin, dh-Math.round(footerH*0.3));
+}
+
+function showA4Preview(){
+  const modal=document.getElementById('a4Modal');
+  const status=document.getElementById('previewStatus');
+  const previewCanvas=document.getElementById('a4Canvas');
+  modal.style.display='block';
+  status.textContent='กำลังสร้างพรีวิว...';
+  _exportCanvas=null;
+
+  // เปิด export mode → render ใหม่ตัวใหญ่
+  exportMode=true; renderTimeline();
+  setTimeout(()=>{
+    captureTimeline(2,(err,srcCanvas)=>{
+      // กลับโหมดปกติ
+      exportMode=false; renderTimeline();
+      if(err){ status.textContent='เกิดข้อผิดพลาด'; return; }
+      const A4W=1200, A4H=Math.round(1200*(210/297));
+      previewCanvas.width=A4W; previewCanvas.height=A4H;
+      drawOnA4(srcCanvas, previewCanvas);
+      status.textContent='พรีวิวเสร็จแล้ว — ปรับ zoom แล้วเปิดพรีวิวใหม่เพื่อดูผล';
+    });
+  },120);
+}
+
+function closePreview(){
+  document.getElementById('a4Modal').style.display='none';
+  _exportCanvas=null;
+}
+
+function doExportPNG(){
+  const status=document.getElementById('previewStatus');
+  status.textContent='⏳ กำลัง export คุณภาพสูง...';
+
+  exportMode=true; renderTimeline();
+  setTimeout(()=>{
+    captureTimeline(4,(err,srcCanvas)=>{
+      exportMode=false; renderTimeline();
+      if(err){ status.textContent='เกิดข้อผิดพลาด กรุณาลองใหม่'; return; }
+      const A4W=3508, A4H=2480;
+      const outCanvas=document.createElement('canvas');
+      outCanvas.width=A4W; outCanvas.height=A4H;
+      drawOnA4(srcCanvas, outCanvas);
+      const a=document.createElement('a');
+      a.href=outCanvas.toDataURL('image/png');
+      a.download='ADR_Timeline_A4.png';
+      a.click();
+      status.textContent='✅ ดาวน์โหลดแล้ว — Print → A4 Landscape';
+    });
+  },120);
+}
+
+/* ════ INIT ════ */
+addDrug();
+</script>
+</body>
+</html>
