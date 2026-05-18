@@ -1,0 +1,422 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.wrap { padding: 1rem; }
+.top-bar { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; }
+.section-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; font-weight: 500; }
+.drug-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.drug-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.autocomplete-wrap { position: relative; flex: 1; }
+.autocomplete-wrap input { width: 100%; font-size: 13px; padding: 5px 8px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); outline: none; }
+.autocomplete-wrap input:focus { border-color: #378ADD; box-shadow: 0 0 0 2px rgba(55,138,221,0.15); }
+.dropdown { position: absolute; top: 100%; left: 0; right: 0; background: var(--color-background-primary); border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); z-index: 100; max-height: 180px; overflow-y: auto; display: none; }
+.dropdown.open { display: block; }
+.dropdown-item { padding: 6px 10px; font-size: 13px; cursor: pointer; color: var(--color-text-primary); }
+.dropdown-item:hover { background: var(--color-background-secondary); }
+.date-input { font-size: 13px; padding: 5px 8px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); outline: none; width: 130px; }
+.date-input:focus { border-color: #378ADD; box-shadow: 0 0 0 2px rgba(55,138,221,0.15); }
+.btn-add { font-size: 13px; padding: 5px 12px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); cursor: pointer; white-space: nowrap; }
+.btn-add:hover { background: var(--color-background-secondary); }
+.btn-remove { font-size: 11px; padding: 3px 7px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); background: transparent; color: var(--color-text-secondary); cursor: pointer; }
+.btn-remove:hover { border-color: #E24B4A; color: #E24B4A; }
+.drug-date-label { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; }
+.adr-section { display: flex; gap: 8px; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+.adr-type-wrap { position: relative; }
+.adr-type-wrap input { font-size: 13px; padding: 5px 8px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); outline: none; width: 200px; }
+.adr-type-wrap input:focus { border-color: #E24B4A; box-shadow: 0 0 0 2px rgba(226,75,74,0.15); }
+.adr-date { font-size: 13px; padding: 5px 8px; border: 0.5px solid #E24B4A; border-radius: var(--border-radius-md); background: var(--color-background-primary); color: #A32D2D; outline: none; width: 130px; }
+.adr-date:focus { box-shadow: 0 0 0 2px rgba(226,75,74,0.15); }
+.btn-adr { font-size: 13px; padding: 5px 12px; border-radius: var(--border-radius-md); background: #E24B4A; color: white; border: none; cursor: pointer; font-weight: 500; }
+.btn-adr:hover { background: #A32D2D; }
+.timeline-container { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; background: var(--color-background-primary); }
+.tl-header { display: flex; background: var(--color-background-secondary); border-bottom: 0.5px solid var(--color-border-tertiary); }
+.tl-drug-col { width: 170px; min-width: 170px; padding: 8px 10px; font-size: 12px; color: var(--color-text-secondary); font-weight: 500; border-right: 0.5px solid var(--color-border-tertiary); }
+.tl-chart-col { flex: 1; overflow: hidden; position: relative; }
+.tl-dates { display: flex; padding: 4px 0; }
+.tl-date-tick { font-size: 10px; color: var(--color-text-tertiary); text-align: center; flex: 1; }
+.tl-body { }
+.tl-row { display: flex; border-top: 0.5px solid var(--color-border-tertiary); min-height: 36px; align-items: center; }
+.tl-row:first-child { border-top: none; }
+.tl-drug-cell { width: 170px; min-width: 170px; padding: 6px 10px; font-size: 12px; color: var(--color-text-primary); border-right: 0.5px solid var(--color-border-tertiary); display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; }
+.tl-drug-name { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.tl-chart-cell { flex: 1; position: relative; height: 36px; }
+canvas#tlCanvas { display: block; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 11px; color: var(--color-text-secondary); align-items: center; }
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-line { width: 20px; height: 2px; }
+</style>
+
+<div class="wrap">
+  <h2 class="sr-only">ADR Drug Timeline — Spontaneous Adverse Drug Reaction Recorder</h2>
+
+  <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+    <div style="font-size: 15px; font-weight: 500; color: var(--color-text-primary);">ADR Drug Timeline</div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-line" style="background:#378ADD;"></div><span>ยา (drug period)</span></div>
+      <div class="legend-item"><div class="legend-line" style="background:#E24B4A; height:2px; border-top: 2px dashed #E24B4A; background: transparent;"></div><span>วันแพ้ยา (ADR)</span></div>
+      <div class="legend-item"><i class="ti ti-alert-triangle" style="font-size:13px;color:#E24B4A;" aria-hidden="true"></i><span>ลักษณะอาการ</span></div>
+    </div>
+  </div>
+
+  <div style="background: var(--color-background-secondary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 10px 12px; margin-bottom: 10px;">
+    <div class="section-label" style="margin-bottom: 8px;"><i class="ti ti-pill" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>เพิ่มยา</div>
+    <div id="drugInputArea">
+      <div class="drug-row" id="drugRowTemplate" style="display:none;">
+        <div class="drug-color-dot"></div>
+        <div class="autocomplete-wrap">
+          <input type="text" placeholder="ค้นหาชื่อยา..." class="drug-name-input" autocomplete="off" />
+          <div class="dropdown"></div>
+        </div>
+        <span class="drug-date-label">เริ่ม</span>
+        <input type="date" class="date-input drug-start" />
+        <span class="drug-date-label">สิ้นสุด</span>
+        <input type="date" class="date-input drug-end" />
+        <button class="btn-remove" onclick="removeDrugRow(this)">ลบ</button>
+      </div>
+    </div>
+    <button class="btn-add" onclick="addDrugRow()" style="margin-top:4px;"><i class="ti ti-plus" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:3px;"></i>เพิ่มยา</button>
+  </div>
+
+  <div style="background: #FCEBEB; border-radius: var(--border-radius-lg); border: 0.5px solid #F7C1C1; padding: 10px 12px; margin-bottom: 12px;">
+    <div class="section-label" style="color:#A32D2D; margin-bottom: 8px;"><i class="ti ti-alert-circle" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>บันทึกอาการแพ้ยา (ADR)</div>
+    <div id="adrInputArea"></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
+      <div class="adr-type-wrap">
+        <input type="text" id="adrTypeInput" placeholder="ลักษณะอาการ (เช่น MP rash, SJS/TEN...)" autocomplete="off" />
+        <div class="dropdown" id="adrDropdown"></div>
+      </div>
+      <input type="date" class="adr-date" id="adrDateInput" />
+      <button class="btn-adr" onclick="addADR()"><i class="ti ti-plus" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:2px;"></i>เพิ่ม ADR</button>
+    </div>
+  </div>
+
+  <div class="timeline-container">
+    <div class="tl-header">
+      <div class="tl-drug-col">ยา (Drug)</div>
+      <div class="tl-chart-col" id="tlDateHeader" style="padding:0;"></div>
+    </div>
+    <div class="tl-body" id="tlBody">
+      <div style="padding:24px;text-align:center;color:var(--color-text-tertiary);font-size:13px;">ยังไม่มีข้อมูล — เพิ่มยาและวันที่เพื่อดูไทม์ไลน์</div>
+    </div>
+  </div>
+  <div id="adrBadgeArea" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;"></div>
+</div>
+
+<script>
+const DRUG_LIST = [
+  "Amoxicillin","Ampicillin","Cloxacillin","Co-amoxiclav","Penicillin V",
+  "Cephalexin","Cefazolin","Cefuroxime","Ceftriaxone","Cefixime","Cefdinir",
+  "Azithromycin","Clarithromycin","Erythromycin","Doxycycline","Tetracycline",
+  "Ciprofloxacin","Levofloxacin","Ofloxacin","Norfloxacin",
+  "Metronidazole","Clindamycin","Vancomycin","Linezolid","Meropenem","Imipenem",
+  "Sulfamethoxazole/Trimethoprim","Co-trimoxazole",
+  "Fluconazole","Itraconazole","Ketoconazole","Voriconazole","Amphotericin B",
+  "Acyclovir","Valacyclovir","Oseltamivir","Remdesivir",
+  "Aspirin","Ibuprofen","Naproxen","Diclofenac","Celecoxib","Meloxicam","Indomethacin",
+  "Paracetamol","Tramadol","Morphine","Oxycodone","Codeine","Fentanyl",
+  "Amlodipine","Nifedipine","Diltiazem","Verapamil",
+  "Atenolol","Metoprolol","Propranolol","Bisoprolol","Carvedilol",
+  "Enalapril","Lisinopril","Captopril","Ramipril",
+  "Losartan","Valsartan","Irbesartan","Candesartan","Telmisartan",
+  "Furosemide","Hydrochlorothiazide","Spironolactone","Amiloride",
+  "Simvastatin","Atorvastatin","Rosuvastatin","Pravastatin",
+  "Metformin","Glibenclamide","Glipizide","Sitagliptin","Empagliflozin","Dapagliflozin","Insulin",
+  "Omeprazole","Pantoprazole","Rabeprazole","Esomeprazole","Ranitidine","Famotidine",
+  "Prednisolone","Dexamethasone","Hydrocortisone","Methylprednisolone","Betamethasone",
+  "Cetirizine","Loratadine","Chlorpheniramine","Diphenhydramine","Fexofenadine",
+  "Warfarin","Heparin","Enoxaparin","Rivaroxaban","Apixaban","Dabigatran",
+  "Digoxin","Amiodarone","Adenosine","Atropine","Dobutamine","Dopamine","Norepinephrine",
+  "Phenytoin","Carbamazepine","Valproate","Lamotrigine","Levetiracetam","Gabapentin","Pregabalin",
+  "Haloperidol","Risperidone","Olanzapine","Quetiapine","Clozapine","Aripiprazole",
+  "Amitriptyline","Fluoxetine","Sertraline","Paroxetine","Escitalopram","Venlafaxine",
+  "Diazepam","Lorazepam","Alprazolam","Clonazepam","Midazolam","Zolpidem",
+  "Allopurinol","Colchicine","Febuxostat",
+  "Levodopa","Carbidopa","Donepezil","Memantine",
+  "Levothyroxine","Propylthiouracil","Methimazole","Carbimazole",
+  "Methotrexate","Azathioprine","Cyclophosphamide","Chlorambucil","Hydroxychloroquine",
+  "Tamoxifen","Anastrozole","Letrozole",
+  "Salbutamol","Terbutaline","Salmeterol","Formoterol","Ipratropium","Tiotropium","Theophylline",
+  "Erythropoietin","Filgrastim","Darbepoetin",
+  "Adrenaline (Epinephrine)","Atropine","Sodium Bicarbonate",
+  "Vitamin B1","Vitamin B6","Vitamin B12","Vitamin C","Vitamin D","Folic Acid","Ferrous Sulfate","Calcium Carbonate"
+];
+
+const ADR_LIST = ["Maculopapular rash (MP rash)","Urticaria","Angioedema","Anaphylaxis","Fixed drug eruption (FDE)","AGEP","SJS","TEN","SJS/TEN","DRESS","Contact dermatitis","Exfoliative dermatitis","Photosensitivity","Erythema multiforme","Pruritus","Flushing","Serum sickness","Drug fever","Hepatotoxicity","Nephrotoxicity","QT prolongation","Neutropenia","Thrombocytopenia","Hemolytic anemia","Stevens-Johnson syndrome"];
+
+const COLORS = ["#378ADD","#1D9E75","#BA7517","#7F77DD","#D4537E","#639922","#D85A30","#185FA5","#0F6E56","#534AB7"];
+
+let drugs = [];
+let adrs = [];
+let drugCounter = 0;
+
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function addDrugRow() {
+  drugCounter++;
+  const colorIdx = (drugs.length) % COLORS.length;
+  const color = COLORS[colorIdx];
+  const id = 'drug_' + drugCounter;
+  const row = document.createElement('div');
+  row.className = 'drug-row';
+  row.dataset.id = id;
+  row.dataset.color = color;
+  row.innerHTML = `
+    <div class="drug-color-dot" style="background:${color};"></div>
+    <div class="autocomplete-wrap">
+      <input type="text" placeholder="ค้นหาชื่อยา..." class="drug-name-input" autocomplete="off" />
+      <div class="dropdown"></div>
+    </div>
+    <span class="drug-date-label">เริ่ม</span>
+    <input type="date" class="date-input drug-start" value="${todayStr()}" />
+    <span class="drug-date-label">สิ้นสุด</span>
+    <input type="date" class="date-input drug-end" />
+    <button class="btn-remove" onclick="removeDrugRow(this)">ลบ</button>
+  `;
+  document.getElementById('drugInputArea').appendChild(row);
+  const obj = { id, color, name: '', start: todayStr(), end: '' };
+  drugs.push(obj);
+  setupDrugRow(row, obj);
+}
+
+function setupDrugRow(row, obj) {
+  const nameInput = row.querySelector('.drug-name-input');
+  const dropdown = row.querySelector('.dropdown');
+  const startInput = row.querySelector('.drug-start');
+  const endInput = row.querySelector('.drug-end');
+
+  nameInput.addEventListener('input', () => {
+    const q = nameInput.value.toLowerCase();
+    const matches = q.length > 0 ? DRUG_LIST.filter(d => d.toLowerCase().includes(q)).slice(0,10) : DRUG_LIST.slice(0,10);
+    showDropdown(dropdown, matches, (val) => {
+      nameInput.value = val;
+      obj.name = val;
+      dropdown.classList.remove('open');
+      renderTimeline();
+    });
+  });
+  nameInput.addEventListener('focus', () => {
+    const q = nameInput.value.toLowerCase();
+    const matches = q.length > 0 ? DRUG_LIST.filter(d => d.toLowerCase().includes(q)).slice(0,10) : DRUG_LIST.slice(0,10);
+    showDropdown(dropdown, matches, (val) => {
+      nameInput.value = val;
+      obj.name = val;
+      dropdown.classList.remove('open');
+      renderTimeline();
+    });
+  });
+  nameInput.addEventListener('blur', () => setTimeout(() => { dropdown.classList.remove('open'); obj.name = nameInput.value; renderTimeline(); }, 150));
+  nameInput.addEventListener('keydown', e => { if(e.key==='Escape') dropdown.classList.remove('open'); });
+  startInput.addEventListener('change', () => { obj.start = startInput.value; renderTimeline(); });
+  endInput.addEventListener('change', () => { obj.end = endInput.value; renderTimeline(); });
+}
+
+function showDropdown(dropdown, items, onSelect) {
+  if (!items.length) { dropdown.classList.remove('open'); return; }
+  dropdown.innerHTML = items.map(i => `<div class="dropdown-item">${i}</div>`).join('');
+  dropdown.classList.add('open');
+  dropdown.querySelectorAll('.dropdown-item').forEach((el, idx) => {
+    el.addEventListener('mousedown', () => onSelect(items[idx]));
+  });
+}
+
+function removeDrugRow(btn) {
+  const row = btn.closest('.drug-row');
+  const id = row.dataset.id;
+  drugs = drugs.filter(d => d.id !== id);
+  row.remove();
+  renderTimeline();
+}
+
+const adrTypeInput = document.getElementById('adrTypeInput');
+const adrDropdown = document.getElementById('adrDropdown');
+adrTypeInput.addEventListener('input', () => {
+  const q = adrTypeInput.value.toLowerCase();
+  const matches = q ? ADR_LIST.filter(a => a.toLowerCase().includes(q)) : ADR_LIST;
+  showDropdown(adrDropdown, matches, (val) => { adrTypeInput.value = val; adrDropdown.classList.remove('open'); });
+});
+adrTypeInput.addEventListener('focus', () => {
+  const matches = adrTypeInput.value ? ADR_LIST.filter(a => a.toLowerCase().includes(adrTypeInput.value.toLowerCase())) : ADR_LIST;
+  showDropdown(adrDropdown, matches, (val) => { adrTypeInput.value = val; adrDropdown.classList.remove('open'); });
+});
+adrTypeInput.addEventListener('blur', () => setTimeout(() => adrDropdown.classList.remove('open'), 150));
+document.getElementById('adrDateInput').value = todayStr();
+
+function addADR() {
+  const type = adrTypeInput.value.trim() || 'ADR';
+  const date = document.getElementById('adrDateInput').value;
+  if (!date) return;
+  adrs.push({ type, date, id: 'adr_' + Date.now() });
+  adrTypeInput.value = '';
+  document.getElementById('adrDateInput').value = todayStr();
+  renderTimeline();
+  renderADRBadges();
+}
+
+function renderADRBadges() {
+  const area = document.getElementById('adrBadgeArea');
+  area.innerHTML = adrs.map(a => `
+    <div style="display:inline-flex;align-items:center;gap:5px;background:#FCEBEB;border:0.5px solid #F7C1C1;border-radius:var(--border-radius-md);padding:4px 8px;font-size:11px;color:#A32D2D;">
+      <i class="ti ti-alert-triangle" aria-hidden="true" style="font-size:12px;"></i>
+      <span>${a.type}</span>
+      <span style="color:#D85A30;">${a.date}</span>
+      <span onclick="removeADR('${a.id}')" style="cursor:pointer;margin-left:2px;color:#A32D2D;font-size:13px;">×</span>
+    </div>
+  `).join('');
+}
+
+function removeADR(id) {
+  adrs = adrs.filter(a => a.id !== id);
+  renderTimeline();
+  renderADRBadges();
+}
+
+function getDateRange() {
+  let allDates = [];
+  drugs.forEach(d => {
+    if (d.start) allDates.push(new Date(d.start));
+    if (d.end) allDates.push(new Date(d.end));
+  });
+  adrs.forEach(a => { if (a.date) allDates.push(new Date(a.date)); });
+  if (!allDates.length) return null;
+  let minD = new Date(Math.min(...allDates));
+  let maxD = new Date(Math.max(...allDates));
+  minD.setDate(minD.getDate() - 2);
+  maxD.setDate(maxD.getDate() + 5);
+  return { minD, maxD };
+}
+
+function dateToX(date, minD, maxD, width) {
+  const total = maxD - minD;
+  return ((date - minD) / total) * width;
+}
+
+function renderTimeline() {
+  const body = document.getElementById('tlBody');
+  const header = document.getElementById('tlDateHeader');
+
+  const activeDrugs = drugs.filter(d => d.name && d.start);
+  if (!activeDrugs.length && !adrs.length) {
+    body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--color-text-tertiary);font-size:13px;">ยังไม่มีข้อมูล — เพิ่มยาและวันที่เพื่อดูไทม์ไลน์</div>';
+    header.innerHTML = '';
+    return;
+  }
+
+  const range = getDateRange();
+  if (!range) return;
+  const { minD, maxD } = range;
+  const CHART_W = 460;
+  const ROW_H = 36;
+
+  const totalDays = Math.round((maxD - minD) / 86400000);
+  const tickEvery = totalDays <= 14 ? 1 : totalDays <= 60 ? 7 : 14;
+  let ticks = [];
+  let cur = new Date(minD);
+  while (cur <= maxD) {
+    ticks.push(new Date(cur));
+    cur.setDate(cur.getDate() + tickEvery);
+  }
+
+  let headerHTML = `<svg width="${CHART_W}" height="28" style="display:block;">`;
+  ticks.forEach(t => {
+    const x = dateToX(t, minD, maxD, CHART_W);
+    const label = `${String(t.getMonth()+1).padStart(2,'0')}/${String(t.getDate()).padStart(2,'0')}`;
+    headerHTML += `<text x="${x}" y="18" font-size="10" fill="var(--color-text-tertiary)" text-anchor="middle">${label}</text>`;
+    headerHTML += `<line x1="${x}" y1="22" x2="${x}" y2="28" stroke="var(--color-border-tertiary)" stroke-width="0.5"/>`;
+  });
+  headerHTML += `</svg>`;
+  header.innerHTML = headerHTML;
+
+  let bodyHTML = '';
+  activeDrugs.forEach(d => {
+    const start = new Date(d.start);
+    const end = d.end ? new Date(d.end) : new Date(maxD);
+    const x1 = dateToX(start, minD, maxD, CHART_W);
+    const x2 = dateToX(end, minD, maxD, CHART_W);
+    const barW = Math.max(x2 - x1, 4);
+
+    let adrLines = '';
+    adrs.forEach(a => {
+      const ad = new Date(a.date);
+      if (ad >= start && ad <= end) {
+        const ax = dateToX(ad, minD, maxD, CHART_W);
+        adrLines += `<line x1="${ax}" y1="2" x2="${ax}" y2="${ROW_H-2}" stroke="#E24B4A" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+        adrLines += `<polygon points="${ax},4 ${ax-5},14 ${ax+5},14" fill="#E24B4A" opacity="0.85"/>`;
+      }
+    });
+
+    let gridLines = '';
+    ticks.forEach(t => {
+      const gx = dateToX(t, minD, maxD, CHART_W);
+      gridLines += `<line x1="${gx}" y1="0" x2="${gx}" y2="${ROW_H}" stroke="var(--color-border-tertiary)" stroke-width="0.5" opacity="0.5"/>`;
+    });
+
+    bodyHTML += `
+      <div class="tl-row">
+        <div class="tl-drug-cell">
+          <div class="drug-color-dot" style="background:${d.color};"></div>
+          <div class="tl-drug-name" title="${d.name}">${d.name}</div>
+        </div>
+        <div class="tl-chart-cell" style="height:${ROW_H}px;">
+          <svg width="${CHART_W}" height="${ROW_H}" style="display:block;">
+            ${gridLines}
+            <rect x="${x1}" y="12" width="${barW}" height="12" rx="3" fill="${d.color}" opacity="0.8"/>
+            <rect x="${x1}" y="12" width="3" height="12" fill="${d.color}"/>
+            ${adrLines}
+          </svg>
+        </div>
+      </div>`;
+  });
+
+  if (adrs.length && !activeDrugs.length) {
+    let gridLines = '';
+    let adrAllLines = '';
+    ticks.forEach(t => {
+      const gx = dateToX(t, minD, maxD, CHART_W);
+      gridLines += `<line x1="${gx}" y1="0" x2="${gx}" y2="${ROW_H}" stroke="var(--color-border-tertiary)" stroke-width="0.5" opacity="0.5"/>`;
+    });
+    adrs.forEach(a => {
+      const ax = dateToX(new Date(a.date), minD, maxD, CHART_W);
+      adrAllLines += `<line x1="${ax}" y1="2" x2="${ax}" y2="${ROW_H-2}" stroke="#E24B4A" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+      adrAllLines += `<polygon points="${ax},4 ${ax-5},14 ${ax+5},14" fill="#E24B4A" opacity="0.85"/>`;
+    });
+    bodyHTML += `
+      <div class="tl-row">
+        <div class="tl-drug-cell"><div style="color:var(--color-text-tertiary);font-size:11px;">ADR events</div></div>
+        <div class="tl-chart-cell" style="height:${ROW_H}px;">
+          <svg width="${CHART_W}" height="${ROW_H}" style="display:block;">${gridLines}${adrAllLines}</svg>
+        </div>
+      </div>`;
+  }
+
+  let adrRowHTML = '';
+  if (adrs.length && activeDrugs.length) {
+    let gridLines = '', adrAllLines = '';
+    ticks.forEach(t => {
+      const gx = dateToX(t, minD, maxD, CHART_W);
+      gridLines += `<line x1="${gx}" y1="0" x2="${gx}" y2="${ROW_H}" stroke="var(--color-border-tertiary)" stroke-width="0.5" opacity="0.5"/>`;
+    });
+    adrs.forEach(a => {
+      const ax = dateToX(new Date(a.date), minD, maxD, CHART_W);
+      adrAllLines += `<line x1="${ax}" y1="0" x2="${ax}" y2="${ROW_H}" stroke="#E24B4A" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+      adrAllLines += `<polygon points="${ax},3 ${ax-5},14 ${ax+5},14" fill="#E24B4A"/>`;
+    });
+    adrRowHTML = `
+      <div class="tl-row" style="background:#FCEBEB33;">
+        <div class="tl-drug-cell" style="color:#A32D2D;font-size:11px;font-weight:500;">
+          <i class="ti ti-alert-triangle" aria-hidden="true" style="font-size:12px;color:#E24B4A;flex-shrink:0;"></i>
+          <span>วันแพ้ยา</span>
+        </div>
+        <div class="tl-chart-cell" style="height:${ROW_H}px;">
+          <svg width="${CHART_W}" height="${ROW_H}" style="display:block;">${gridLines}${adrAllLines}</svg>
+        </div>
+      </div>`;
+  }
+
+  body.innerHTML = bodyHTML + adrRowHTML;
+}
+
+addDrugRow();
+</script>
